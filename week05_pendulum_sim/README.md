@@ -1,4 +1,4 @@
-﻿# 第 5 周实验 · 单摆仿真（Pendulum Simulation）
+# 第 5 周实验 · 单摆仿真（Pendulum Simulation）
 
 ## 一、实验者信息
 
@@ -25,7 +25,7 @@
 
 ```text
 F:\Week5\                      ← 课程主仓库根（就地 git init，.git 在这一层）
-|-- .git/                      # 完整提交历史（8 次 commit，随提交包交付）
+|-- .git/                      # 完整提交历史（随提交包交付，可用 git log 复验）
 |-- .gitignore                 # 根级忽略：提交包 zip、验证临时产物
 |-- 第5周-单摆实验-工作区说明.md  # 仓库根总说明
 |-- Week05_Lab_5702126059_杨明辉.zip   # 最终提交包（由本节脚本生成，不入库）
@@ -55,7 +55,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File week05_pendulum_sim\scripts\
 
 产物 `F:\Week5\Week05_Lab_5702126059_杨明辉.zip`：
 
-- 含 `index.html`、`README.md`、`.git/`（8 次 commit 的完整历史，可 `git log` 复验）；
+- 含 `index.html`、`README.md`、`.git/`（完整提交历史，可 `git log` 复验）；
 - 脚本自带回读校验：缺 `index.html` / `README.md` / `.git/HEAD` / `.git/refs/heads/main`
   或 commit 数 < 3 时**直接报错退出**，不会产出一个"看起来对"的包；
 - 排除项：`.verify-tmp/`（可再生产物）与 `.git/ORIG_HEAD`（历史改写遗留的旧哈希引用）。
@@ -199,7 +199,9 @@ Select-String log.txt -Pattern 'Uncaught|ReferenceError|TypeError|is not defined
 > 已用 `git filter-branch --env-filter` 把全部提交的 author / committer
 > **统一改写为 `杨明辉`**，因此**所有提交哈希都变了**（旧哈希 `c0004de`/`fc2ac7a`/… 已作废）。
 > 改写前已把 `.git` 完整备份到 `F:\Week5_git_backup_20261014_163843`。
-> `git fsck --full` 无输出，对象库完整。最终基线共 **9 次 commit**（`3bdbd10` 为打包时的 HEAD）。
+> `git fsck --full` 无输出，对象库完整。
+> **以 `git rev-list --count HEAD` 的实时输出为准**（README 里写死的数字永远会滞后一次提交，
+> 因为写这次数字的动作本身就又是一个提交 —— 这是绕不开的自指）。
 
 > ⚠️ **上表的哈希会随每次 `git commit` 变动，不要把它当权威**。
 > 这有一层绕不开的自指：本次同步哈希的文档改动，本身又产生了一个新提交。
@@ -248,6 +250,33 @@ git commit -m "feat(week05): init pendulum experiment workspace"
 3. **`clientHeight` 这类"撑满容器"的取值必须有精确默认值。**
    模拟 DOM 里若把 `clientHeight` 的读值写成依赖别处的变量，一旦测试显式改写它，
    后续断言就会读到被污染的默认值。正确做法是：**显式赋值后按赋值生效，未赋值才回落到计算值**。
+
+### 附：`.ps1` 脚本必须存成 UTF-8 **带 BOM**
+
+本机是 **Windows PowerShell 5.1**（不是 PowerShell 7 —— `pwsh` 在这台机器上不存在），
+而 5.1 读取**无 BOM** 的 `.ps1` 时会按系统 ANSI（GBK）解码。脚本里的中文注释一旦被这样解码，
+就会变成乱码并**直接引发 `ParserError`**，报错信息还长这样，极具误导性：
+
+```text
+Missing expression after ','.
+一元运算符"-"后面缺少表达式。
+```
+
+看起来像语法写错了，其实**一个字符都没错，纯粹是编码问题**。
+（更迷惑的是：同一份文件用 `Get-Content` 看是好的，因为显示时又按别的编码解了一遍。）
+
+因此本目录所有 `.ps1` 都**必须**带 BOM。判断与修复：
+
+```powershell
+$f = 'week05_pendulum_sim\scripts\push-to-github.ps1'
+[System.IO.File]::ReadAllBytes($f)[0..2] -join ','   # 应为 239,187,191 (EF BB BF)
+# 修复：按 UTF-8 读入、按「带 BOM 的 UTF-8」写回
+$t = [System.IO.File]::ReadAllText($f, (New-Object System.Text.UTF8Encoding($false)))
+[System.IO.File]::WriteAllText($f, $t, (New-Object System.Text.UTF8Encoding($true)))
+```
+
+> 顺带一句：执行策略是 `Restricted`，跑脚本要加 `-ExecutionPolicy Bypass`，
+> 该开关**只对本次进程生效**，不会改动系统设置。
 
 ## 六、一次"幽灵报错"的排查记录（重要）
 
@@ -404,10 +433,25 @@ powershell -NoProfile -ExecutionPolicy Bypass -File `
    并单独提交 `docs(week05): fill in GitHub portfolio repository URL`，
    保证远端上的 README 不带占位符；
 4. **推送前体检**：提交数 ≥ 3、作者唯一，不满足直接拒绝推送；
-5. **预检远端仓库是否存在** —— 对 GitHub 来说"仓库不存在"和"私有仓库"都返回
-   403/404 并要求认证，`git push` 的原始报错极易误判，所以先探一次
-   `info/refs` 把话说清楚（404 = 请先去建仓库，并提醒**别勾 Add a README**）；
+5. **预检远端仓库是否存在** —— 这里有两个实测踩出来的坑，都写进脚本注释了：
+   GitHub 的 `info/refs` 端点对 `HEAD` 返回 **405**，只能 `GET`；更麻烦的是
+   **仓库不存在时它返回 401 而不是 404**（GitHub 故意不区分「不存在」和「私有」，
+   避免泄露私有仓库的存在性），于是预检等于失效、还会误报「仓库存在」。
+   现改用公开 REST API `/repos/{owner}/{repo}`，语义明确：**200 = 存在且公开，404 = 查不到**；
 6. **推送后复验** `origin/main` 与本地 `HEAD` 哈希是否一致，一致才报完成。
+
+> 💡 **先干跑一遍再正式推**（强烈建议，尤其是地址可能写错时）：
+>
+> ```powershell
+> powershell -NoProfile -ExecutionPolicy Bypass -File `
+>   week05_pendulum_sim\scripts\push-to-github.ps1 -RepoUrl 你的用户名/Week05_Lab -DryRun
+> ```
+>
+> 加上 `-DryRun` 后脚本**只解析地址 + 预检远端是否存在，不配置远端、不回填 README、
+> 不提交、不推送**，跑完可以对同一个地址反复试错。
+> 这道闸是拿教训换来的：本脚本「回填 README 并提交」是**真的会写 git 历史的**，
+> 早期没有 `-DryRun` 时，用假地址试跑一次就在历史里留下了一个带错误地址的提交，
+> 事后必须 `git reset --hard` 才能清掉（该提交的哈希已不在最终历史中）。
 
 > 认证说明：GitHub 已停用账号密码。首次 push 会弹出 Git Credential Manager
 > 的登录窗口（浏览器授权或粘贴 Personal Access Token），属正常流程。
@@ -415,5 +459,5 @@ powershell -NoProfile -ExecutionPolicy Bypass -File `
 
 ---
 
-*本 README 由第 5 周实验工作区初始化时写入，用于声明子模块的独立性与无菌就绪状态；
-「人机协同三反思」与 GitHub 链接章节在最终提交前补齐。*
+*本 README 由第 5 周实验工作区初始化时写入，用于声明子模块的独立性与无菌就绪状态。*
+*「人机协同三反思」章节与 GitHub 作品集链接均已按最终提交要求补齐（见第三、七节）。*
