@@ -1,6 +1,6 @@
-# 第 5 周实验 · 单摆仿真（Pendulum Simulation）
+﻿# 第 5 周实验 · 单摆仿真（Pendulum Simulation）
 
-![verify](https://github.com/<你的用户名>/Week05_Lab/actions/workflows/verify.yml/badge.svg)
+![verify](https://github.com/SugarSugarFish/Week05_Lab/actions/workflows/verify.yml/badge.svg)
 
 > 上面这枚徽章会在 push 之后自动亮起来：每次提交都由 GitHub 在**干净环境**重跑
 > `scripts/verify-index.mjs` 的全部断言。徽章绿 = 模拟器可用，不是"在我电脑上能跑"。
@@ -421,17 +421,17 @@ AI 很容易写出**天然会通过**的断言（放宽容差、拿自己当基�
 
 ## 八、GitHub 作品集链接
 
-> 远端仓库地址（push 后把实际的 GitHub 地址替换到这里）：
+> 远端仓库地址（已推送）：
 
 ```text
-https://github.com/<你的用户名>/<仓库名>
+https://github.com/SugarSugarFish/Week05_Lab
 ```
 
 同步命令（任选其一）：
 
 ```bash
 # 方式一：手动
-git remote add origin https://github.com/<你的用户名>/<仓库名>.git
+git remote add origin https://github.com/SugarSugarFish/Week05_Lab.git
 git push -u origin main
 ```
 
@@ -447,7 +447,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File `
 1. **归一化地址**并拒绝两种危险输入 —— 非 https 地址、URL 里嵌了用户名/令牌
    （令牌写进 URL 会落进 `.git/config`，绝不允许）；
 2. **要求工作树干净**，否则拒绝执行，避免把半成品顺手提交上去；
-3. **回填 README 里的这一节**（把 `<你的用户名>/<仓库名>` 占位符换成真实地址）
+3. **回填 README 里的这一节**（把 `SugarSugarFish/Week05_Lab` 占位符换成真实地址）
    并单独提交 `docs(week05): fill in GitHub portfolio repository URL`，
    保证远端上的 README 不带占位符；
 4. **推送前体检**：提交数 ≥ 3、作者唯一，不满足直接拒绝推送；
