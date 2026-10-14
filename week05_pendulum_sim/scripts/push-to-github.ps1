@@ -145,12 +145,17 @@ if ($authors.Count -ne 1) { Fail "提交作者不唯一：$($authors -join ' / '
 # 远端仓库存在性预检：git push 对"私有/不存在"统一回 403 并要账号密码，
 # 报错信息极具误导性，所以先用一次匿名 HTTP 请求探一下，把话说清楚。
 Step '预检远端仓库是否已创建'
+# ⚠️ 必须用 GET，不能用 HEAD：GitHub 的 info/refs 端点对 HEAD 返回 405，
+#    会把这个端点误判成"不可用"从而静默跳过预检。实测踩过。
 $probe = "$WebUrl/info/refs?service=git-upload-pack"
-$probeOk = $false
 try {
-    $resp = Invoke-WebRequest -Uri $probe -Method Head -TimeoutSec 12 -UseBasicParsing -ErrorAction Stop
-    $probeOk = $true
-    Ok "远端仓库可达（HTTP $($resp.StatusCode)）"
+    $resp = Invoke-WebRequest -Uri $probe -Method Get -TimeoutSec 15 -UseBasicParsing -ErrorAction Stop
+    $code = [int]$resp.StatusCode
+    if ($code -eq 200) {
+        Ok "远端仓库已存在且公开可达（HTTP 200）"
+    } else {
+        Ok "远端返回 HTTP $code，继续尝试 push"
+    }
 } catch {
     $code = $null
     if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
@@ -162,14 +167,13 @@ try {
         本地历史与它无关，push 会被拒（non-fast-forward）。
 "@
     } elseif ($code -eq 401 -or $code -eq 403) {
-        # 私有仓库匿名访问也会是 401/403，这是正常的，不代表仓库不存在
-        Ok "远端返回 HTTP $code（私有仓库或需认证，属正常，继续）"
+        # 私有仓库匿名访问也是 401/403：这恰恰说明仓库存在，属正常
+        Ok "远端返回 HTTP $code（私有仓库或需认证，说明仓库存在，继续）"
     } else {
-        Write-Host "    [提示] 预检未能完成（$($_.Exception.Message)）" -ForegroundColor Yellow
+        Write-Host "    [提示] 预检未完成（$($_.Exception.Message)）" -ForegroundColor Yellow
         Write-Host "           可能是网络/TLS 限制，不阻塞，继续尝试 push。" -ForegroundColor Yellow
     }
 }
-if (-not $probeOk) { Write-Host '    （预检未确认可达，push 结果以下一步为准）' -ForegroundColor DarkGray }
 
 # ---------- 7. 推送 ----------
 Step "推送到 $RemoteName/$branch"
