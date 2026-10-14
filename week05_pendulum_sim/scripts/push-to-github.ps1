@@ -66,7 +66,12 @@ if (-not (Test-Path $ReadmePath)) { Fail "找不到 README: $ReadmePath" }
 
 # ---------- 1. 归一化远端地址 ----------
 Step '解析远端地址'
+# 顺序有讲究，两步都不能省（尾斜杠那个是真踩出来的 bug）：
+#   1) 先去掉结尾斜杠 —— 否则 .../Week05_Lab/ 会被拼成 .../Week05_Lab/.git，
+#      得到一个不存在的仓库路径，push 时报错还很难看出是斜杠的锅；
+#   2) 再去掉 .git 后缀，后面统一由脚本自己补，避免出现 .git.git。
 $raw = $RepoUrl.Trim()
+$raw = $raw -replace '/+$', ''
 $raw = $raw -replace '\.git$', ''
 
 if ($raw -match '^https?://') {
@@ -175,6 +180,11 @@ Step '预检远端仓库是否已创建'
 #      （GitHub 故意不区分"不存在"和"私有"，避免泄露私有仓库是否存在），
 #      于是"不存在"与"私有"在这一层根本分不开，预检等于失效、还会误报"仓库存在"。
 #   API 的 /repos/{owner}/{repo} 语义明确：存在且公开 -> 200，不存在 -> 404。
+# 仅在 GitHub 上做这项预检：非 github.com 的远端（企业版、内网 git、file:// 本地
+# 裸仓库等）既没有这个 API，硬探也会把正常的远端误判成"不存在"。
+if ($WebUrl -notmatch '^https://github\.com/') {
+    Ok "非 github.com 远端，跳过存在性预检（$WebUrl）"
+} else {
 $api = $WebUrl -replace '^https://github\.com/', 'https://api.github.com/repos/'
 try {
     $resp = Invoke-WebRequest -Uri $api -Method Get -TimeoutSec 15 -UseBasicParsing `
@@ -205,6 +215,7 @@ try {
         Write-Host "    [提示] 预检未完成（$($_.Exception.Message)）" -ForegroundColor Yellow
         Write-Host '           可能是网络/TLS 限制，不阻塞，继续尝试 push。' -ForegroundColor Yellow
     }
+}
 }
 
 # ---------- 7. 推送 ----------
