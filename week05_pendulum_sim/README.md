@@ -92,9 +92,9 @@ T = 4√(L/g)·K(sin(θ₀/2))      K = 第一类完全椭圆积分
 
 | 控件 | 量程 | 步长 | 效果 |
 |---|---|---|---|
-| 摆长 | `100 ~ 350 px` | `5 px` | 即时改周期；摆长变长时画布内显示长度自动等比缩放，不会顶出画面 |
+| 摆长 | `100 ~ 350 px` | `1 px` | 即时改周期；摆长变长时画布内显示长度自动等比缩放，不会顶出画面 |
 | 重力 | `1.0 ~ 25.0 m/s²` | `0.1` | 即时改周期，`g` 越大摆得越快 |
-| 阻尼 | `0.0000 ~ 0.0100 s⁻¹` | `0.0001` | `0` 时标注「无阻尼」，非零时显示 `c` 与阻尼比 `ζ` |
+| 阻尼 | `0.0000 ~ 0.0100 s⁻¹` | `0.00002` | `0` 时标注「无阻尼」，非零时显示 `c` 与阻尼比 `ζ` |
 | 重置摆动 | 按钮 | — | θ→45°、ω→0、t→0、拖尾清空，并自动恢复运行 |
 
 ### 视觉实现
@@ -163,7 +163,7 @@ Select-String log.txt -Pattern 'Uncaught|ReferenceError|TypeError|is not defined
 |---|---|
 | 初始基线 | `c0004de` — `feat(week05): init pendulum experiment workspace` |
 | 模拟器提交 | `fc2ac7a` — `feat(week05): add canvas pendulum SHM simulator with test harness` |
-| 控制面板提交 | 本次提交 — 实时参数控制面板与验证脚本增补 |
+| 控制面板 + 回归守卫 | `725e1eb` — `fix(week05): guard against inline-handler ReferenceError in reset binding` |
 | 作者 | 杨明辉 `<5702126059@course.local>` |
 | 分支 | `main` |
 
@@ -219,9 +219,12 @@ Uncaught ReferenceError: resetAnimation is not defined
 | 真实页面注入探针，真点按钮 | 未捕获异常 **0 个**；状态确实复位：`44.95°/−0.115 → 45.00°/0.000/0.00 s` |
 | 反向对照：故意写一个调用 `resetAnimation()` 的页面 | **成功复现** `ReferenceError: resetAnimation is not defined` ✅ 说明检测链路本身有效 |
 
-关键事实：`resetAnimation` 这个标识符在整个工作区里**只出现在当时的临时探针文件中**，
-`index.html` 里从未出现；而报错所说的 `index.html:68` 是 **CSS 里的颜色声明**，不是 JS
-（该文件共 829 行）。因此那条报错只可能来自**旧的缓存版本 / 别的文件**。
+关键事实：`resetAnimation` 这个标识符在页面里**从未出现过**——本页的重置函数叫
+`resetMotion()`（`index.html:468`）；`resetAnimation` 仅出现在**当时的临时探针文件**中，
+以及现在验证脚本里作为"禁止出现"的字符串常量（`scripts/verify-index.mjs:84,85,99,100,101`）。
+而报错所说的 `index.html:68` 是 **CSS 里的颜色声明**，不是 JS
+（该文件共 857 行，其中 `index.html:68` 属于样式表区的颜色声明）。
+因此那条报错只可能来自**旧的缓存版本 / 别的文件**。
 
 ### 这个报错"会"怎么发生（以及如何永久避免）
 
@@ -229,14 +232,20 @@ Uncaught ReferenceError: resetAnimation is not defined
 两者互相看不见。所以只要有人把绑定改写成：
 
 ```html
-<!-- ❌ 全局作用域找不到 reset 函数 → ReferenceError -->
-<button onclick="resetAnimation()">重置摆动</button>
+<!-- ❌ 全局作用域找不到该函数 → ReferenceError -->
+<button onclick="resetMotion()">重置摆动</button>
 ```
 
-就会精确复现该报错。正确写法（本页现状）：
+就会精确复现同类报错。正确写法（本页现状，`index.html:839`）：
 
 ```js
-els.reset.addEventListener('click', reset);   // ✅ 闭包内可见
+el.reset.addEventListener('click', function () { ... });   // ✅ 闭包内可见
+```
+
+按钮标记本身也不带任何内联处理器（`index.html:317`）：
+
+```html
+<button type="button" id="resetBtn">重置摆动</button>
 ```
 
 > 现在就放心了：**`scripts/verify-index.mjs:95` 那条断言会直接拦住这种写法** ——
