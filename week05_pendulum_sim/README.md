@@ -1,4 +1,4 @@
-# 第 5 周实验 · 单摆仿真（Pendulum Simulation）
+﻿# 第 5 周实验 · 单摆仿真（Pendulum Simulation）
 
 ## 一、实验者信息
 
@@ -34,7 +34,8 @@ F:\Week5\                      ← 课程主仓库根（就地 git init，.git �
     |-- index.html             # ⭐ 单摆模拟器（单文件，双击即开）
     |-- scripts/
     |   |-- verify-index.mjs   # 自动验证脚本（94 项断言：语法 / 物理 / 交互 / 动画循环）
-    |   `-- package-submission.ps1  # 生成最终提交 zip（幂等，可反复执行）
+    |   |-- package-submission.ps1  # 生成最终提交 zip（幂等，可反复执行）
+    |   `-- push-to-github.ps1      # 配置远端 + 回填 README 链接 + 推送（幂等）
     |-- commit_baseline.bat    # Git 基线自检脚本（Windows / cmd，双击即可）
     |-- build.sh               # 同上，Bash 版本（git bash 下使用）
     |-- src/                   # 仿真源码（预留给后续扩展）
@@ -379,12 +380,38 @@ AI 很容易写出**天然会通过**的断言（放宽容差、拿自己当基�
 https://github.com/<你的用户名>/<仓库名>
 ```
 
-同步命令：
+同步命令（任选其一）：
 
 ```bash
+# 方式一：手动
 git remote add origin https://github.com/<你的用户名>/<仓库名>.git
 git push -u origin main
 ```
+
+```powershell
+# 方式二：一条命令（推荐）
+# 在 F:\Week5 执行；地址可写完整 URL，也可只写 用户名/仓库名
+powershell -NoProfile -ExecutionPolicy Bypass -File `
+  week05_pendulum_sim\scripts\push-to-github.ps1 -RepoUrl 你的用户名/Week05_Lab
+```
+
+`push-to-github.ps1` 比手敲命令多做这几件事（均为幂等，可安全重跑）：
+
+1. **归一化地址**并拒绝两种危险输入 —— 非 https 地址、URL 里嵌了用户名/令牌
+   （令牌写进 URL 会落进 `.git/config`，绝不允许）；
+2. **要求工作树干净**，否则拒绝执行，避免把半成品顺手提交上去；
+3. **回填 README 里的这一节**（把 `<你的用户名>/<仓库名>` 占位符换成真实地址）
+   并单独提交 `docs(week05): fill in GitHub portfolio repository URL`，
+   保证远端上的 README 不带占位符；
+4. **推送前体检**：提交数 ≥ 3、作者唯一，不满足直接拒绝推送；
+5. **预检远端仓库是否存在** —— 对 GitHub 来说"仓库不存在"和"私有仓库"都返回
+   403/404 并要求认证，`git push` 的原始报错极易误判，所以先探一次
+   `info/refs` 把话说清楚（404 = 请先去建仓库，并提醒**别勾 Add a README**）；
+6. **推送后复验** `origin/main` 与本地 `HEAD` 哈希是否一致，一致才报完成。
+
+> 认证说明：GitHub 已停用账号密码。首次 push 会弹出 Git Credential Manager
+> 的登录窗口（浏览器授权或粘贴 Personal Access Token），属正常流程。
+> 本脚本不读取、不打印、不保存任何凭据。
 
 ---
 
