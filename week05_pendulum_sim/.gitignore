@@ -1,0 +1,2 @@
+# 验证脚本的临时产物（可从 index.html 重新生成，不入库）
+.verify-tmp/
