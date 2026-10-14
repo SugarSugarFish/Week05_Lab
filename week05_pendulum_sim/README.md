@@ -24,19 +24,39 @@
 ## 三、目录结构
 
 ```text
-week05_pendulum_sim/
-|-- README.md            # 本文件：实验说明与工作区状态
-|-- index.html           # ⭐ 单摆简谐振动模拟器（单文件，双击即开）
-|-- scripts/
-|   `-- verify-index.mjs # 自动验证脚本（语法 / 物理 / 交互 / 动画循环）
-|-- commit_baseline.bat  # Git 基线自检脚本（Windows / cmd，双击即可）
-|-- build.sh             # 同上，Bash 版本（git bash 下使用）
-|-- src/                 # 仿真源码（预留给后续扩展）
-|-- data/                # 原始数据与采集记录
-|-- docs/                # 实验笔记、分析文档
-|   `-- media/           # 渲染截图（open-frame.png 等）
-`-- results/             # 输出结果、图表、结论
+F:\Week5\                      ← 课程主仓库根（就地 git init，.git 在这一层）
+|-- .git/                      # 完整提交历史（6 次 commit，随提交包交付）
+|-- 第5周-单摆实验-工作区说明.md  # 仓库根总说明
+|-- Week05_Lab_5702126059_杨明辉.zip   # 最终提交包（由本节脚本生成）
+`-- week05_pendulum_sim/       # 第 5 周专属无菌子模块
+    |-- README.md              # 本文件：实验说明 + 人机协同三反思 + GitHub 链接
+    |-- index.html             # ⭐ 单摆模拟器（单文件，双击即开）
+    |-- scripts/
+    |   |-- verify-index.mjs   # 自动验证脚本（94 项断言：语法 / 物理 / 交互 / 动画循环）
+    |   `-- package-submission.ps1  # 生成最终提交 zip（幂等，可反复执行）
+    |-- commit_baseline.bat    # Git 基线自检脚本（Windows / cmd，双击即可）
+    |-- build.sh               # 同上，Bash 版本（git bash 下使用）
+    |-- src/                   # 仿真源码（预留给后续扩展）
+    |-- data/                  # 原始数据与采集记录
+    |-- docs/                  # 实验笔记、分析文档
+    |   `-- media/             # 渲染截图（open-frame.png / panel-frame.png）
+    `-- results/               # 输出结果、图表、结论
 ```
+
+### 生成最终提交包
+
+```powershell
+# 在仓库根 F:\Week5 执行（本机是 Windows PowerShell 5.1，没有 pwsh；
+# 若脚本执行策略受限，加 -ExecutionPolicy Bypass 只对这一次生效，不改系统设置）
+powershell -NoProfile -ExecutionPolicy Bypass -File week05_pendulum_sim\scripts\package-submission.ps1
+```
+
+产物 `F:\Week5\Week05_Lab_5702126059_杨明辉.zip`：
+
+- 含 `index.html`、`README.md`、`.git/`（6 次 commit 的完整历史，可 `git log` 复验）；
+- 脚本自带回读校验：缺 `index.html` / `README.md` / `.git/HEAD` / `.git/refs/heads/main`
+  或 commit 数 < 3 时**直接报错退出**，不会产出一个"看起来对"的包；
+- 排除项：`.verify-tmp/`（可再生产物）与 `.git/ORIG_HEAD`（历史改写遗留的旧哈希引用）。
 
 ## 三·B、单摆简谐振动模拟器（index.html）
 
