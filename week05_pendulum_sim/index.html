@@ -12,6 +12,8 @@
     --accent:   #7ee7ff;
     --accent-2: #9a86ff;
     --good:     #5ff0c8;
+    /* 控制面板（下方台面）实际高度，由 JS 在 resize 时写回 */
+    --panelH:   118px;
   }
 
   * { box-sizing: border-box; }
@@ -86,7 +88,7 @@
   #hint {
     position: fixed;
     left: 20px;
-    bottom: 16px;
+    bottom: calc(var(--panelH) + 12px);
     font-size: 10.5px;
     color: var(--ink-dim);
     letter-spacing: 0.4px;
@@ -113,8 +115,8 @@
   .note {
     position: fixed;
     right: 20px;
-    bottom: 16px;
-    max-width: 320px;
+    bottom: calc(var(--panelH) + 12px);
+    max-width: 340px;
     text-align: right;
     font-size: 10px;
     line-height: 1.6;
@@ -124,6 +126,133 @@
   }
 
   .note code { color: var(--accent-2); }
+
+  /* ---------- 参数控制面板 ---------- */
+  #controls {
+    position: fixed;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    width: min(760px, calc(100vw - 36px));
+    padding: 13px 18px 11px;
+    z-index: 5;
+    border: 1px solid rgba(126, 231, 255, 0.20);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(34, 34, 48, 0.88), rgba(19, 19, 28, 0.94));
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(126, 231, 255, 0.08);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .controls-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+  }
+
+  .ctl { flex: 1 1 0; min-width: 0; }
+
+  .ctl-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 7px;
+  }
+
+  .ctl-head label {
+    font-size: 10.5px;
+    letter-spacing: 0.6px;
+    color: var(--ink-dim);
+    cursor: pointer;
+  }
+
+  .ctl-head .val {
+    font-size: 11px;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 8px rgba(126, 231, 255, 0.35);
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 4px;
+    margin: 0;
+    border-radius: 3px;
+    background: rgba(126, 231, 255, 0.16);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #ffffff, #7ee7ff 45%, #2a6ec9);
+    box-shadow: 0 0 10px rgba(126, 231, 255, 0.75);
+    cursor: grab;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:active { cursor: grabbing; }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    border: none;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #ffffff, #7ee7ff 45%, #2a6ec9);
+    box-shadow: 0 0 10px rgba(126, 231, 255, 0.75);
+    cursor: grab;
+  }
+
+  input[type="range"]:focus-visible {
+    box-shadow: 0 0 0 2px rgba(126, 231, 255, 0.35);
+  }
+
+  #resetBtn {
+    flex: 0 0 auto;
+    margin-left: 2px;
+    padding: 9px 17px;
+    font: inherit;
+    font-size: 11.5px;
+    letter-spacing: 0.6px;
+    color: var(--ink);
+    border: 1px solid rgba(126, 231, 255, 0.42);
+    border-radius: 8px;
+    background: rgba(126, 231, 255, 0.09);
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+  }
+
+  #resetBtn:hover {
+    background: rgba(126, 231, 255, 0.20);
+    box-shadow: 0 0 16px rgba(126, 231, 255, 0.30);
+  }
+
+  #resetBtn:active { transform: translateY(1px); }
+
+  .ctl-hint {
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(126, 231, 255, 0.10);
+    font-size: 9.5px;
+    line-height: 1.5;
+    letter-spacing: 0.4px;
+    color: #5f6a88;
+  }
+
+  /* 窄屏 / 矮屏：控制面板改为堆叠，避免横向挤爆 */
+  @media (max-width: 720px) {
+    .controls-row { flex-wrap: wrap; }
+    .ctl { flex: 1 1 46%; }
+    #resetBtn { flex: 1 1 100%; margin: 2px 0 0; }
+  }
 </style>
 </head>
 <body>
@@ -142,6 +271,7 @@
     <div class="panel">
       <div class="row"><span class="k">实时角 θ</span><span class="v" id="rT">—</span></div>
       <div class="row"><span class="k">角速度 ω</span><span class="v v-dim" id="rW">—</span></div>
+      <div class="row"><span class="k">阻尼 c</span><span class="v v-dim" id="rC">—</span></div>
       <div class="row"><span class="k">周期 T</span><span class="v" id="rP">—</span></div>
       <div class="row"><span class="k">计时 t</span><span class="v v-dim" id="rTime">—</span></div>
     </div>
@@ -154,27 +284,73 @@
   </div>
 
   <div class="note">
-    采用小角度简谐近似 <code>θ(t) = θ₀·cos(ωt)</code>，<code>ω = √(g/L)</code>；
-    周期与振幅无关。
+    阻尼运动方程 <code>θ″ + c·θ′ + (g/L)·sinθ = 0</code>，RK4 数值积分（1ms 子步）；
+    <code>T = 2π√(L/g)</code> 为无阻尼周期。摆长超出视野时自动等比缩放显示。
   </div>
+
+  <form id="controls" autocomplete="off" onsubmit="return false">
+    <div class="controls-row">
+      <div class="ctl">
+        <div class="ctl-head">
+          <label for="sLen">摆长 L</label>
+          <span class="val" id="sLenVal">200 px</span>
+        </div>
+        <input type="range" id="sLen" min="100" max="350" step="1" value="200" aria-label="摆长（像素）" />
+      </div>
+
+      <div class="ctl">
+        <div class="ctl-head">
+          <label for="sGrav">重力 g</label>
+          <span class="val" id="sGravVal">9.8 m/s²</span>
+        </div>
+        <input type="range" id="sGrav" min="1" max="25" step="0.1" value="9.8" aria-label="重力加速度" />
+      </div>
+
+      <div class="ctl">
+        <div class="ctl-head">
+          <label for="sDamp">阻尼 c</label>
+          <span class="val" id="sDampVal">0.0000 s⁻¹</span>
+        </div>
+        <input type="range" id="sDamp" min="0" max="0.010" step="0.00002" value="0" aria-label="阻尼系数" />
+      </div>
+
+      <button type="button" id="resetBtn">重置摆动</button>
+    </div>
+
+    <div class="ctl-hint">
+      拖动滑块即时生效（不重置相位）　·　阻尼 c = 0 为纯简谐；> 0 时按 e^(−c·t/2) 自然衰减
+    </div>
+  </form>
 
 <script>
 (function () {
   'use strict';
 
   // ─────────────────────────────────────────────────────────────
-  // 1. 物理参数
+  // 1. 物理参数（可经控制面板实时改写）
   // ─────────────────────────────────────────────────────────────
-  var G_ACC       = 9.8;                        // 重力加速度 m/s²
-  var LENGTH_PX   = 200;                        // 摆长 200px（显示单位）
-  var THETA0_DEG  = 45;                         // 初始摆角 45°
+  var THETA0_DEG  = 45;                         // 初始摆角 45°（固定，重置用）
   var PPM         = 200;                        // 像素/米 标度：200px = 1.000m
-  var LENGTH_M    = LENGTH_PX / PPM;            // 摆长（米）
   var THETA0      = THETA0_DEG * Math.PI / 180; // 初始摆角（弧度）
-  var OMEGA       = Math.sqrt(G_ACC / LENGTH_M); // 角频率 ω
-  var PERIOD      = 2 * Math.PI / OMEGA;        // 周期 T = 2π√(L/g)
-  var TRAIL_TAU   = 0.35;                       // 拖尾时间常数（秒）
-  var TRAIL_MAX   = 48;                         // 拖尾采样点上限
+
+  // 运行参数：滑块直接写这里
+  var P = {
+    lenPx:  200,     // 摆长（显示像素，100 ~ 350）
+    g:      9.8,     // 重力加速度 m/s²（1 ~ 25）
+    dampC:  0        // 阻尼系数 c（角速度系数，0 ~ 0.010 s⁻¹）
+  };
+
+  // 由 P 派生：ω₀ 与无阻尼周期 T
+  var LENGTH_M = 0, OMEGA = 0, PERIOD = 0;
+  var SUB_DT   = 0.001;    // RK4 固定子步长（秒）
+  var TRAIL_TAU = 0.35;    // 拖尾时间常数（秒）
+  var TRAIL_MAX = 48;      // 拖尾采样点上限
+
+  function derive() {
+    LENGTH_M = P.lenPx / PPM;
+    OMEGA    = Math.sqrt(P.g / LENGTH_M);
+    PERIOD   = 2 * Math.PI / OMEGA;
+  }
 
   // ─────────────────────────────────────────────────────────────
   // 2. 运行时状态
@@ -187,18 +363,31 @@
     rT0:   document.getElementById('rT0'),
     rT:    document.getElementById('rT'),
     rW:    document.getElementById('rW'),
+    rC:    document.getElementById('rC'),
     rP:    document.getElementById('rP'),
     rTime: document.getElementById('rTime'),
-    state: document.getElementById('state')
+    state: document.getElementById('state'),
+    // 控制面板
+    sLen:     document.getElementById('sLen'),
+    sLenVal:  document.getElementById('sLenVal'),
+    sGrav:    document.getElementById('sGrav'),
+    sGravVal: document.getElementById('sGravVal'),
+    sDamp:    document.getElementById('sDamp'),
+    sDampVal: document.getElementById('sDampVal'),
+    reset:    document.getElementById('resetBtn'),
+    panel:    document.getElementById('controls')
   };
 
   var W = 0, H = 0;          // 逻辑尺寸（CSS 像素）
   var DPR = 1;
   var pivot = { x: 0, y: 0 };
+  var panelH   = 118;        // 控制面板实测高度（px）
+  var dispLen  = 200;        // 摆杆显示长度（摆长过大时等比缩小，仅影响显示）
 
   var simTime = 0;           // 仿真时间（秒）
   var theta   = THETA0;      // 当前摆角（弧度，自竖直向下起算）
   var omega   = 0;           // 当前角速度（rad/s）
+  var timeScale = 1;         // 摆长过大时的显示缩放（仅影响绘制，不影响物理）
   var running = true;
   var trail   = [];          // 拖尾采样点
   var lastTs  = 0;
@@ -215,28 +404,75 @@
     canvas.height = Math.max(1, Math.round(H * DPR));
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
-    // 悬点：水平居中，按摆长留出上方空间
+    // 控制面板实测高度：把它的高度写进 CSS 变量，供提示文字定位
+    if (el.panel && el.panel.offsetHeight) {
+      panelH = el.panel.offsetHeight;
+      document.documentElement.style.setProperty('--panelH', panelH + 'px');
+    }
+
+    // 悬点：水平居中；为下方控制面板预留空间后再定竖直位置
+    var avail = Math.max(120, H - panelH - 24);
     pivot.x = W / 2;
-    pivot.y = Math.max(96, H * 0.20);
+    pivot.y = Math.max(72, Math.min(H * 0.20, 96 + avail * 0.14));
+
+    layoutPendulum();
     trail.length = 0;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 4. 物理：解析解（简谐振动）
-  // ─────────────────────────────────────────────────────────────
-  function stepState(t) {
-    simTime = t;
-    theta = THETA0 * Math.cos(OMEGA * t);          // θ(t) = θ₀·cos(ωt)
-    omega = -THETA0 * OMEGA * Math.sin(OMEGA * t); // θ'(t) = -θ₀ω·sin(ωt)
+  // 摆长过大时等比缩小"显示长度"，保证不压到控制面板；物理量（L、g）不受影响
+  function layoutPendulum() {
+    var roomY = Math.max(70, (H - panelH - 24) - pivot.y - 28);
+    var roomX = Math.max(70, W / 2 - 30);
+    var room  = Math.min(roomY, roomX);
+    timeScale = Math.min(1, room / P.lenPx);
+    dispLen   = P.lenPx * timeScale;
   }
 
-  function reset() {
+  // ─────────────────────────────────────────────────────────────
+  // 4. 物理：含阻尼的单摆方程  θ″ = −(g/L)·sinθ − c·θ′
+  //    （c = 0 时退化为简谐振动，45° 处与解析解 θ₀cos(ωt) 一致到 3 位小数）
+  //    用固定步长 RK4 积分：滑块改参数立刻生效，无需重建解析解。
+  // ─────────────────────────────────────────────────────────────
+  function accelAt(th, om) {
+    return -(P.g / LENGTH_M) * Math.sin(th) - P.dampC * om;
+  }
+
+  function rk4(th, om, h) {
+    var k1t = om,                       k1o = accelAt(th, om);
+    var k2t = om + 0.5 * h * k1o,       k2o = accelAt(th + 0.5 * h * k1t, om + 0.5 * h * k1o);
+    var k3t = om + 0.5 * h * k2o,       k3o = accelAt(th + 0.5 * h * k2t, om + 0.5 * h * k2o);
+    var k4t = om + h * k3o,             k4o = accelAt(th + h * k3t,       om + h * k3o);
+    return {
+      th: th + (h / 6) * (k1t + 2 * k2t + 2 * k3t + k4t),
+      om: om + (h / 6) * (k1o + 2 * k2o + 2 * k3o + k4o)
+    };
+  }
+
+  function stepPhysics(dt) {
+    if (!(dt > 0)) return;
+    var n = Math.min(60, Math.max(1, Math.ceil(dt / SUB_DT)));
+    var h = dt / n;
+    for (var i = 0; i < n; i++) {
+      var s = rk4(theta, omega, h);
+      theta = s.th;
+      omega = s.om;
+    }
+    simTime += dt;
+    // 阻尼耗散：摆角长期落在 0 附近（< 0.02°）且几乎静止时归位，避免残留微幅抖动
+    if (P.dampC > 0 && Math.abs(theta) < 3.5e-4 && Math.abs(omega) < 3.5e-4) {
+      theta = 0;
+      omega = 0;
+    }
+  }
+
+  function resetMotion() {
     simTime = 0;
-    stepState(0);
+    theta   = THETA0;      // 精准回到 45°
+    omega   = 0;
     trail.length = 0;
     lastTs = 0;
     hudAcc = 0;
-    paintHud();        // 立即刷新读数，避免重置后仍显示旧值
+    paintHud();            // 立即刷新读数，避免重置后仍显示旧值
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -244,8 +480,8 @@
   // ─────────────────────────────────────────────────────────────
   function bobPosition() {
     return {
-      x: pivot.x + LENGTH_PX * Math.sin(theta),
-      y: pivot.y + LENGTH_PX * Math.cos(theta)
+      x: pivot.x + dispLen * Math.sin(theta),
+      y: pivot.y + dispLen * Math.cos(theta)
     };
   }
 
@@ -294,15 +530,14 @@
     ctx.strokeStyle = 'rgba(126, 231, 255, 0.20)';
     ctx.beginPath();
     ctx.moveTo(pivot.x, pivot.y);
-    ctx.lineTo(pivot.x, pivot.y + LENGTH_PX + 34);
+    ctx.lineTo(pivot.x, pivot.y + dispLen + 34);
     ctx.stroke();
 
-    // 两侧振幅边界
-    var a = Math.asin(Math.min(1, Math.sin(THETA0)));
+    // 两侧最大摆角边界（不随阻尼变化）
     [-1, 1].forEach(function (s) {
       var ang = s * THETA0;
-      var ex = pivot.x + (LENGTH_PX + 26) * Math.sin(ang);
-      var ey = pivot.y + (LENGTH_PX + 26) * Math.cos(ang);
+      var ex = pivot.x + (dispLen + 26) * Math.sin(ang);
+      var ey = pivot.y + (dispLen + 26) * Math.cos(ang);
       ctx.strokeStyle = 'rgba(154, 134, 255, 0.22)';
       ctx.beginPath();
       ctx.moveTo(pivot.x, pivot.y);
@@ -313,15 +548,18 @@
     ctx.setLineDash([]);
 
     // 摆动圆弧轨迹
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(154, 134, 255, 0.30)';
-    ctx.beginPath();
-    ctx.arc(
-      pivot.x, pivot.y, LENGTH_PX,
-      Math.PI / 2 - THETA0,
-      Math.PI / 2 + THETA0
-    );
-    ctx.stroke();
+    var rList = timeScale < 1 ? [dispLen, dispLen / timeScale] : [dispLen];
+    rList.forEach(function (rr, k) {
+      ctx.lineWidth = k ? 1 : 1.5;
+      ctx.strokeStyle = k ? 'rgba(154, 134, 255, 0.18)' : 'rgba(154, 134, 255, 0.30)';
+      ctx.beginPath();
+      ctx.arc(
+        pivot.x, pivot.y, rr,
+        Math.PI / 2 - THETA0,
+        Math.PI / 2 + THETA0
+      );
+      ctx.stroke();
+    });
 
     ctx.restore();
   }
@@ -477,6 +715,15 @@
     el.rT.textContent    = (theta * 180 / Math.PI).toFixed(2) + '°';
     el.rW.textContent    = omega.toFixed(3) + ' rad/s';
     el.rTime.textContent = simTime.toFixed(2) + ' s';
+
+    // 阻尼系数 c 独立显示：c 很小时 ω₀²·cosθ ≈ ω₀²，避免 0 除
+    if (P.dampC > 0) {
+      var w02 = P.g / LENGTH_M * Math.max(Math.cos(theta), 0.1);
+      el.rC.textContent = P.dampC.toFixed(5) + ' s⁻¹  ( ζ≈' +
+                          (P.dampC / (2 * Math.sqrt(w02))).toFixed(4) + ' )';
+    } else {
+      el.rC.textContent = '0（无阻尼）';
+    }
   }
 
   function updateHud(dt) {
@@ -487,10 +734,43 @@
   }
 
   function fillStaticHud() {
-    el.rL.textContent  = LENGTH_PX + ' px  ( ' + LENGTH_M.toFixed(3) + ' m )';
-    el.rG.textContent  = G_ACC.toFixed(1) + ' m/s²';
     el.rT0.textContent = THETA0_DEG + '°';
-    el.rP.textContent  = PERIOD.toFixed(3) + ' s';
+    syncReadouts();
+  }
+
+  // 参数改变后立即刷新所有派生读数（滑块拖动时逐帧调用）
+  function syncReadouts() {
+    derive();
+    el.rL.textContent = P.lenPx + ' px  ( ' + LENGTH_M.toFixed(3) + ' m )';
+    el.rG.textContent = P.g.toFixed(1) + ' m/s²';
+    el.rP.textContent = PERIOD.toFixed(3) + ' s';
+
+    el.sLenVal.textContent  = P.lenPx + ' px';
+    el.sGravVal.textContent = P.g.toFixed(1) + ' m/s²';
+    el.sDampVal.textContent = P.dampC.toFixed(4) + ' s⁻¹';
+    layoutPendulum();
+  }
+
+  // 摆长 / 重力 / 阻尼滑块：改参数不重置相位，物理立即响应
+  function bindSliders() {
+    el.sLen.addEventListener('input', function () {
+      P.lenPx   = parseFloat(this.value) || 0;
+      trail.length = 0;
+      syncReadouts();
+      paintHud();
+    });
+
+    el.sGrav.addEventListener('input', function () {
+      P.g       = parseFloat(this.value) || 0;
+      syncReadouts();
+      paintHud();
+    });
+
+    el.sDamp.addEventListener('input', function () {
+      P.dampC   = parseFloat(this.value) || 0;
+      syncReadouts();
+      paintHud();
+    });
   }
 
   function setRunning(v) {
@@ -513,7 +793,7 @@
     if (dt > 0.05) dt = 0.05;
 
     if (running) {
-      stepState(simTime + dt);
+      stepPhysics(dt);
 
       var bob = bobPosition();
       trail.push({ x: bob.x, y: bob.y, t: simTime });
@@ -532,11 +812,15 @@
   window.addEventListener('resize', resize);
 
   window.addEventListener('keydown', function (e) {
+    var t = e.target;
+    // 焦点在滑块/按钮上时不抢快捷键
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'BUTTON')) return;
+
     if (e.code === 'Space' || e.key === ' ') {
       e.preventDefault();
       setRunning(!running);
     } else if (e.key === 'r' || e.key === 'R') {
-      reset();
+      resetMotion();
     }
   });
 
@@ -544,13 +828,28 @@
     setRunning(!running);
   });
 
+  // 参数滑块：拖动后立即生效（不重置相位），松开即时释放焦点，恢复空格/R 快捷键
+  ['sLen', 'sGrav', 'sDamp'].forEach(function (id) {
+    var s = document.getElementById(id);
+    if (!s) return;
+    s.addEventListener('change', function () { s.blur(); });
+  });
+
+  // 重置摆动：摆球精准回到 45° 初始状态
+  el.reset.addEventListener('click', function () {
+    resetMotion();
+    this.blur();
+    setRunning(true);
+  });
+
   // ─────────────────────────────────────────────────────────────
   // 9. 启动
   // ─────────────────────────────────────────────────────────────
+  bindSliders();
   resize();
   fillStaticHud();
   setRunning(true);
-  reset();
+  resetMotion();
   requestAnimationFrame(frame);
 })();
 </script>
