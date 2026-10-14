@@ -1,4 +1,4 @@
-# 第 5 周实验 · 单摆仿真（Pendulum Simulation）
+﻿# 第 5 周实验 · 单摆仿真（Pendulum Simulation）
 
 ## 一、实验者信息
 
@@ -25,9 +25,10 @@
 
 ```text
 F:\Week5\                      ← 课程主仓库根（就地 git init，.git 在这一层）
-|-- .git/                      # 完整提交历史（6 次 commit，随提交包交付）
+|-- .git/                      # 完整提交历史（8 次 commit，随提交包交付）
+|-- .gitignore                 # 根级忽略：提交包 zip、验证临时产物
 |-- 第5周-单摆实验-工作区说明.md  # 仓库根总说明
-|-- Week05_Lab_5702126059_杨明辉.zip   # 最终提交包（由本节脚本生成）
+|-- Week05_Lab_5702126059_杨明辉.zip   # 最终提交包（由本节脚本生成，不入库）
 `-- week05_pendulum_sim/       # 第 5 周专属无菌子模块
     |-- README.md              # 本文件：实验说明 + 人机协同三反思 + GitHub 链接
     |-- index.html             # ⭐ 单摆模拟器（单文件，双击即开）
@@ -53,7 +54,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File week05_pendulum_sim\scripts\
 
 产物 `F:\Week5\Week05_Lab_5702126059_杨明辉.zip`：
 
-- 含 `index.html`、`README.md`、`.git/`（6 次 commit 的完整历史，可 `git log` 复验）；
+- 含 `index.html`、`README.md`、`.git/`（8 次 commit 的完整历史，可 `git log` 复验）；
 - 脚本自带回读校验：缺 `index.html` / `README.md` / `.git/HEAD` / `.git/refs/heads/main`
   或 commit 数 < 3 时**直接报错退出**，不会产出一个"看起来对"的包；
 - 排除项：`.verify-tmp/`（可再生产物）与 `.git/ORIG_HEAD`（历史改写遗留的旧哈希引用）。
@@ -186,15 +187,29 @@ Select-String log.txt -Pattern 'Uncaught|ReferenceError|TypeError|is not defined
 | 回归守卫 | `87f63bc` — `fix(week05): guard against inline-handler ReferenceError in reset binding` |
 | 文档修订 | `32554de` — `docs(week05): correct line refs, slider steps and record phantom-error diagnosis` |
 | 三反思 + 打包 | `9da0fa0` — `docs(week05): add human-AI collaboration reflections and packaging script` |
-| 作者 | 杨明辉 `<5702126059@course.local>`（5 次提交作者一致） |
+| 哈希回填 | `d6c6abb` — `docs(week05): refresh commit hashes after author-name normalisation` |
+| 打包脚本 | `0461e73` — `build(week05): package submission zip with git history self-check` |
+| 提交件纳管修正 | `e36ceb9` — `chore(week05): untrack submission zip and document packaging pitfalls` |
+| 作者 | 杨明辉 `<5702126059@course.local>`（全部 8 次提交作者一致） |
 | 分支 | `main` |
 
 > **提交历史说明（2026-10-14）**：早期提交的作者名曾被写成拼音 `Yang Minghui`，
 > 与基线提交的 `杨明辉` 不一致。为满足"提交历史清晰"的验收要求，
-> 已用 `git filter-branch --env-filter` 把全部 5 次提交的 author / committer
+> 已用 `git filter-branch --env-filter` 把全部提交的 author / committer
 > **统一改写为 `杨明辉`**，因此**所有提交哈希都变了**（旧哈希 `c0004de`/`fc2ac7a`/… 已作废）。
 > 改写前已把 `.git` 完整备份到 `F:\Week5_git_backup_20261014_163843`。
-> `git fsck --full` 无输出，对象库完整。
+> `git fsck --full` 无输出，对象库完整。最终基线共 **8 次 commit**。
+
+### 打包脚本踩过的两个坑（已修，留档避免重犯）
+
+1. **产物自包含**：zip 生成在仓库根，若不从文件清单里排除 `Week05_Lab_*.zip`，
+   上一次的 zip 会被打进这一次，体积逐次翻倍（1.5 MB → 3.0 MB → 6.1 MB…）。
+   脚本现已同时做**清单过滤**与**事后断言**（清单里出现任何 `*.zip` 直接抛错）。
+2. **被 git 纳管的产物让工作树永远 dirty**：zip 一度被 `git add` 进了索引，
+   而打包时又被排除，导致解压后 `git status` 显示 ` D Week05_Lab_….zip` ——
+   "工作树干净"这一验收点会被悄悄破坏。**根因是仓根当时没有 `.gitignore`**。
+   现已新增根级 `F:\Week5\.gitignore`（`Week05_Lab_*.zip` + `.verify-tmp/` + `*.tmp`）
+   并 `git rm --cached` 摘除索引，解压后工作树为 `nothing to commit, working tree clean`。
 
 查看基线的确切哈希与校验命令（在仓库根目录 `F:\Week5` 执行）：
 
