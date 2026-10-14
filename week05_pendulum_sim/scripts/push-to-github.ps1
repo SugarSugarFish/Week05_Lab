@@ -36,11 +36,18 @@ function Fail($msg) { Write-Host "`n[错误] $msg" -ForegroundColor Red; exit 1 
 function Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 function Ok($msg)   { Write-Host "    [OK] $msg" -ForegroundColor Green }
 
+# ⚠️ git 把"远端不存在"这类正常的分支情况也写到 stderr。
+# 在 $ErrorActionPreference='Stop' 下，PowerShell 会把原生命令的 stderr
+# 当成 terminating error 直接中断脚本 —— 必须先降级为 Continue，
+# 再靠 $LASTEXITCODE 判断成败。这个坑实测踩过。
+$ErrorActionPreference = 'Continue'
+
 # ---------- 0. 定位仓库根 ----------
 Step '定位仓库根'
-$RepoRoot = (& git rev-parse --show-toplevel 2>$null)
-if ($LASTEXITCODE -ne 0 -or -not $RepoRoot) { Fail '当前目录不在 git 仓库里，请在 F:\Week5 下执行' }
-$RepoRoot = $RepoRoot.Trim()
+$RepoRoot = (& git rev-parse --show-toplevel 2>&1 | Where-Object { $_ -is [string] })
+$rc = $LASTEXITCODE
+if ($rc -ne 0 -or -not $RepoRoot) { Fail '当前目录不在 git 仓库里，请在 F:\Week5 下执行' }
+$RepoRoot = ($RepoRoot | Select-Object -First 1).Trim()
 Ok "仓库根: $RepoRoot"
 
 $ReadmePath = Join-Path $RepoRoot 'week05_pendulum_sim\README.md'
@@ -81,9 +88,11 @@ Ok '工作树干净'
 
 # ---------- 3. 配置远端（幂等）----------
 Step "配置远端 $RemoteName"
-$existing = (& git -C $RepoRoot remote get-url $RemoteName 2>$null)
+# 远端不存在时 git 会往 stderr 写 "error: No such remote"，用 2>&1 收进来
+# 再靠 $LASTEXITCODE 判断，别让它看起来像脚本崩了。
+$existing = (& git -C $RepoRoot remote get-url $RemoteName 2>&1)
 if ($LASTEXITCODE -eq 0 -and $existing) {
-    $existing = $existing.Trim()
+    $existing = ($existing | Select-Object -First 1).Trim()
     if ($existing -eq $CloneUrl) {
         Ok "已存在且一致: $existing"
     } else {
