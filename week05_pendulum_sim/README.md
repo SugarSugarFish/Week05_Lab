@@ -1,5 +1,10 @@
 # 第 5 周实验 · 单摆仿真（Pendulum Simulation）
 
+![verify](https://github.com/<你的用户名>/Week05_Lab/actions/workflows/verify.yml/badge.svg)
+
+> 上面这枚徽章会在 push 之后自动亮起来：每次提交都由 GitHub 在**干净环境**重跑
+> `scripts/verify-index.mjs` 的全部断言。徽章绿 = 模拟器可用，不是"在我电脑上能跑"。
+
 ## 一、实验者信息
 
 | 项目 | 内容 |
@@ -27,6 +32,7 @@
 F:\Week5\                      ← 课程主仓库根（就地 git init，.git 在这一层）
 |-- .git/                      # 完整提交历史（随提交包交付，可用 git log 复验）
 |-- .gitignore                 # 根级忽略：提交包 zip、验证临时产物
+|-- .github/workflows/verify.yml   # CI：每次 push 在干净环境重跑全部断言
 |-- 第5周-单摆实验-工作区说明.md  # 仓库根总说明
 |-- Week05_Lab_5702126059_杨明辉.zip   # 最终提交包（由本节脚本生成，不入库）
 `-- week05_pendulum_sim/       # 第 5 周专属无菌子模块
@@ -44,6 +50,18 @@ F:\Week5\                      ← 课程主仓库根（就地 git init，.git �
     |   `-- media/             # 渲染截图（open-frame.png / panel-frame.png）
     `-- results/               # 输出结果、图表、结论
 ```
+
+### 持续集成（别人机器上的同一份证据）
+
+`.github/workflows/verify.yml` 会在每次 push 时于 GitHub 的干净 Ubuntu 环境重跑
+`scripts/verify-index.mjs`，并额外断言**验证过程不污染工作区**：
+
+```bash
+cd week05_pendulum_sim && node scripts/verify-index.mjs   # CI 跑的就是这一条
+```
+
+这样做是为了让"94 项断言全通过"不只成立于我这台机器：绿色徽章表示同一份证据
+在另一台机器、另一个操作系统上也成立。本地手动复现只需 Node（脚本只用内置模块）。
 
 ### 生成最终提交包
 

@@ -1,0 +1,45 @@
+name: verify
+
+# 每次 push / PR 都在干净环境重跑单摆模拟器的自动化验收。
+# 这里跑的就是本地那套 scripts/verify-index.mjs（94 项断言），
+# 所以 CI 绿 = 同一份证据在别人的机器上也成立，而不是“在我电脑上能跑”。
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  assertions:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: week05_pendulum_sim
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 准备 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 显示运行环境
+        run: |
+          node --version
+          echo "工作目录: $(pwd)"
+
+      - name: 跑验证脚本（语法 / 物理 / 交互 / 动画循环）
+        run: node scripts/verify-index.mjs
+
+      - name: 确认验证过程未污染工作区
+        run: |
+          # verify-index.mjs 会把抽取出的脚本写进 .verify-tmp/，该目录已被 .gitignore 忽略；
+          # 若出现意料之外的改动，说明脚本产生了副作用，这里应当失败。
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::验证脚本改动了被跟踪文件，请检查副作用："
+            git status --porcelain
+            exit 1
+          fi
+          echo "工作区干净，验证无副作用。"

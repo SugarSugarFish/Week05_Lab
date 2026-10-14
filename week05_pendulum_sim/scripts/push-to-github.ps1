@@ -92,6 +92,17 @@ if ($CloneUrl -match '@') { Fail '地址里含有 @（疑似嵌了用户名/令�
 Ok "clone 地址: $CloneUrl"
 Ok "网页地址  : $WebUrl"
 
+# 拆出 用户名 / 仓库名 —— README 里的徽章链接需要它们分别回填。
+# 非 github.com 远端（企业版 / 内网）解析不出来也不要紧：那时只会用到 $phExact 那条替换。
+$Owner = ''
+$RepoName = ''
+if ($WebUrl -match '^https://github\.com/(?<owner>[^/]+)/(?<repo>[^/]+?)(?:\.git)?/?$') {
+    $Owner    = $Matches['owner']
+    $RepoName = $Matches['repo']
+    Ok "用户名    : $Owner"
+    Ok "仓库名    : $RepoName"
+}
+
 # ---------- 2. 工作树必须干净，否则先让你处理 ----------
 Step '检查工作树'
 $dirty = & git -C $RepoRoot status --porcelain
@@ -132,16 +143,30 @@ if ($DryRun) {
 } else {
     $utf8Bom = New-Object System.Text.UTF8Encoding($true)
     $text = [System.IO.File]::ReadAllText($ReadmePath)
-    $placeholder = 'https://github.com/<你的用户名>/<仓库名>'
+    # 占位符有「精确 URL」和「带 <…> 的通用形式」两种；两者都只需把 <…> 段换成 用户名/仓库名。
+    $phExact = 'https://github.com/<你的用户名>/<仓库名>'
+    $phUser = '<你的用户名>'
+    $phRepo = '<仓库名>'
 
-    if ($text -notmatch [regex]::Escape($placeholder)) {
+    if ($text -notmatch [regex]::Escape($phUser) -and $text -notmatch [regex]::Escape($phRepo)) {
         Ok 'README 里已无占位符，跳过回填（幂等：不会重复提交）'
     } else {
-        $text = $text.Replace($placeholder, $WebUrl)
+        $text = $text.Replace($phExact, $WebUrl)   # clone 命令用的完整地址
+        $text = $text.Replace($phUser, $Owner)     # 徽章等处的 <你的用户名>
+        $text = $text.Replace($phRepo, $RepoName)  # 徽章等处的 <仓库名>
         # 顺带把"push 后把实际的地址替换到这里"这句提示语改掉
         $text = $text.Replace('远端仓库地址（push 后把实际的 GitHub 地址替换到这里）：', '远端仓库地址（已推送）：')
         [System.IO.File]::WriteAllText($ReadmePath, $text, $utf8Bom)
         Ok "已回填: $WebUrl"
+
+        # 回填后立刻确认没有占位符漏网（徽章这类不在 clone 命令里的链接最容易漏）。
+        # 只查这两个中文标记本身，不要用 <...> 泛匹配 —— README 里成篇的 HTML 代码示例
+        # （</button>、<script>、<canvas>）会被误报成"未替换的占位符"。
+        $leftover = @()
+        if ($text -match [regex]::Escape($phUser)) { $leftover += $phUser }
+        if ($text -match [regex]::Escape($phRepo)) { $leftover += $phRepo }
+        if ($leftover) { Warn ("README 中仍有未替换的占位符: " + ($leftover -join '  ')) }
+        else { Ok '占位符已全部替换，无漏网' }
     }
 }
 
