@@ -1,4 +1,4 @@
-﻿# 第 5 周实验 · 单摆仿真（Pendulum Simulation）
+# 第 5 周实验 · 单摆仿真（Pendulum Simulation）
 
 ## 一、实验者信息
 
@@ -198,7 +198,11 @@ Select-String log.txt -Pattern 'Uncaught|ReferenceError|TypeError|is not defined
 > 已用 `git filter-branch --env-filter` 把全部提交的 author / committer
 > **统一改写为 `杨明辉`**，因此**所有提交哈希都变了**（旧哈希 `c0004de`/`fc2ac7a`/… 已作废）。
 > 改写前已把 `.git` 完整备份到 `F:\Week5_git_backup_20261014_163843`。
-> `git fsck --full` 无输出，对象库完整。最终基线共 **8 次 commit**。
+> `git fsck --full` 无输出，对象库完整。最终基线共 **9 次 commit**（`3bdbd10` 为打包时的 HEAD）。
+
+> ⚠️ **上表的哈希会随每次 `git commit` 变动，不要把它当权威**。
+> 这有一层绕不开的自指：本次同步哈希的文档改动，本身又产生了一个新提交。
+> **以 `git log --oneline` 的实时输出为准**，本表只用于说明"每一次提交各自干了什么"。
 
 ### 打包脚本踩过的两个坑（已修，留档避免重犯）
 
