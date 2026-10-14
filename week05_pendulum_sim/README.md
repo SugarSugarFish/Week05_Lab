@@ -161,11 +161,20 @@ Select-String log.txt -Pattern 'Uncaught|ReferenceError|TypeError|is not defined
 
 | 项目 | 值 |
 |---|---|
-| 初始基线 | `c0004de` — `feat(week05): init pendulum experiment workspace` |
-| 模拟器提交 | `fc2ac7a` — `feat(week05): add canvas pendulum SHM simulator with test harness` |
-| 控制面板 + 回归守卫 | `725e1eb` — `fix(week05): guard against inline-handler ReferenceError in reset binding` |
-| 作者 | 杨明辉 `<5702126059@course.local>` |
+| 初始基线 | `cd4b701` — `feat(week05): init pendulum experiment workspace` |
+| 模拟器提交 | `dcc0a2c` — `feat(week05): add canvas pendulum SHM simulator with test harness` |
+| 回归守卫 | `87f63bc` — `fix(week05): guard against inline-handler ReferenceError in reset binding` |
+| 文档修订 | `32554de` — `docs(week05): correct line refs, slider steps and record phantom-error diagnosis` |
+| 三反思 + 打包 | `9da0fa0` — `docs(week05): add human-AI collaboration reflections and packaging script` |
+| 作者 | 杨明辉 `<5702126059@course.local>`（5 次提交作者一致） |
 | 分支 | `main` |
+
+> **提交历史说明（2026-10-14）**：早期提交的作者名曾被写成拼音 `Yang Minghui`，
+> 与基线提交的 `杨明辉` 不一致。为满足"提交历史清晰"的验收要求，
+> 已用 `git filter-branch --env-filter` 把全部 5 次提交的 author / committer
+> **统一改写为 `杨明辉`**，因此**所有提交哈希都变了**（旧哈希 `c0004de`/`fc2ac7a`/… 已作废）。
+> 改写前已把 `.git` 完整备份到 `F:\Week5_git_backup_20261014_163843`。
+> `git fsck --full` 无输出，对象库完整。
 
 查看基线的确切哈希与校验命令（在仓库根目录 `F:\Week5` 执行）：
 
