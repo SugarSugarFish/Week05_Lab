@@ -27,7 +27,13 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$RepoUrl,
 
-    [string]$RemoteName = 'origin'
+    [string]$RemoteName = 'origin',
+
+    # 干跑：只做地址解析与预检，不配置远端、不回填 README、不提交、不推送。
+    # 存在的理由：本脚本「回填 README 并提交」是真的会写历史的 ——
+    # 拿一个不存在的仓库地址试跑一次，就会在历史里留下带错地址的提交，
+    # 事后必须 rebase 才能清掉。实测踩过，所以加这道闸。
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,6 +41,11 @@ $ErrorActionPreference = 'Stop'
 function Fail($msg) { Write-Host "`n[错误] $msg" -ForegroundColor Red; exit 1 }
 function Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 function Ok($msg)   { Write-Host "    [OK] $msg" -ForegroundColor Green }
+function Warn($msg) { Write-Host "    [注意] $msg" -ForegroundColor Yellow }
+
+if ($DryRun) {
+    Write-Host '*** DRY-RUN：只解析地址 + 预检远端，不写任何东西 ***' -ForegroundColor Magenta
+}
 
 # ⚠️ git 把"远端不存在"这类正常的分支情况也写到 stderr。
 # 在 $ErrorActionPreference='Stop' 下，PowerShell 会把原生命令的 stderr
@@ -82,53 +93,66 @@ $dirty = & git -C $RepoRoot status --porcelain
 if ($dirty) {
     Write-Host '    以下改动尚未提交：' -ForegroundColor Yellow
     $dirty | ForEach-Object { Write-Host "      $_" -ForegroundColor Yellow }
-    Fail '请先提交或撤销这些改动，再运行本脚本（脚本只在干净工作树上回填 README，避免误提交半成品）'
+    if ($DryRun) { Warn 'DRY-RUN 下不阻断，但正式运行会被这里拦下' }
+    else { Fail '请先提交或撤销这些改动，再运行本脚本（脚本只在干净工作树上回填 README，避免误提交半成品）' }
 }
 Ok '工作树干净'
 
 # ---------- 3. 配置远端（幂等）----------
 Step "配置远端 $RemoteName"
-# 远端不存在时 git 会往 stderr 写 "error: No such remote"，用 2>&1 收进来
-# 再靠 $LASTEXITCODE 判断，别让它看起来像脚本崩了。
-$existing = (& git -C $RepoRoot remote get-url $RemoteName 2>&1)
-if ($LASTEXITCODE -eq 0 -and $existing) {
-    $existing = ($existing | Select-Object -First 1).Trim()
-    if ($existing -eq $CloneUrl) {
-        Ok "已存在且一致: $existing"
-    } else {
-        & git -C $RepoRoot remote set-url $RemoteName $CloneUrl
-        Ok "已更新: $existing  ->  $CloneUrl"
-    }
+if ($DryRun) {
+    Warn "DRY-RUN：跳过配置远端（正式运行会设为 $CloneUrl）"
 } else {
-    & git -C $RepoRoot remote add $RemoteName $CloneUrl
-    Ok "已添加: $CloneUrl"
+    # 远端不存在时 git 会往 stderr 写 "error: No such remote"，用 2>&1 收进来
+    # 再靠 $LASTEXITCODE 判断，别让它看起来像脚本崩了。
+    $existing = (& git -C $RepoRoot remote get-url $RemoteName 2>&1)
+    if ($LASTEXITCODE -eq 0 -and $existing) {
+        $existing = ($existing | Select-Object -First 1).Trim()
+        if ($existing -eq $CloneUrl) {
+            Ok "已存在且一致: $existing"
+        } else {
+            & git -C $RepoRoot remote set-url $RemoteName $CloneUrl
+            Ok "已更新: $existing  ->  $CloneUrl"
+        }
+    } else {
+        & git -C $RepoRoot remote add $RemoteName $CloneUrl
+        Ok "已添加: $CloneUrl"
+    }
 }
 
 # ---------- 4. 回填 README 链接 ----------
 Step '回填 README 的 GitHub 地址'
-$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-$text = [System.IO.File]::ReadAllText($ReadmePath)
-$placeholder = 'https://github.com/<你的用户名>/<仓库名>'
-
-if ($text -notmatch [regex]::Escape($placeholder)) {
-    Ok 'README 里已无占位符，跳过回填'
+if ($DryRun) {
+    Warn 'DRY-RUN：跳过回填 README（正式运行会写文件并提交）'
 } else {
-    $text = $text.Replace($placeholder, $WebUrl)
-    # 顺带把"push 后把实际的地址替换到这里"这句提示语改掉
-    $text = $text.Replace('远端仓库地址（push 后把实际的 GitHub 地址替换到这里）：', '远端仓库地址（已推送）：')
-    [System.IO.File]::WriteAllText($ReadmePath, $text, $utf8Bom)
-    Ok "已回填: $WebUrl"
+    $utf8Bom = New-Object System.Text.UTF8Encoding($true)
+    $text = [System.IO.File]::ReadAllText($ReadmePath)
+    $placeholder = 'https://github.com/<你的用户名>/<仓库名>'
+
+    if ($text -notmatch [regex]::Escape($placeholder)) {
+        Ok 'README 里已无占位符，跳过回填（幂等：不会重复提交）'
+    } else {
+        $text = $text.Replace($placeholder, $WebUrl)
+        # 顺带把"push 后把实际的地址替换到这里"这句提示语改掉
+        $text = $text.Replace('远端仓库地址（push 后把实际的 GitHub 地址替换到这里）：', '远端仓库地址（已推送）：')
+        [System.IO.File]::WriteAllText($ReadmePath, $text, $utf8Bom)
+        Ok "已回填: $WebUrl"
+    }
 }
 
 # ---------- 5. 若 README 有变化则提交 ----------
 Step '提交 README 变更'
-& git -C $RepoRoot add -- 'week05_pendulum_sim/README.md' | Out-Null
-$staged = & git -C $RepoRoot diff --cached --name-only
-if ($staged) {
-    & git -C $RepoRoot commit -m 'docs(week05): fill in GitHub portfolio repository URL' | Out-Null
-    Ok '已提交 docs(week05): fill in GitHub portfolio repository URL'
+if ($DryRun) {
+    Warn 'DRY-RUN：跳过提交（正式运行会 git add + git commit）'
 } else {
-    Ok 'README 无变化，无需提交'
+    & git -C $RepoRoot add -- 'week05_pendulum_sim/README.md' | Out-Null
+    $staged = & git -C $RepoRoot diff --cached --name-only
+    if ($staged) {
+        & git -C $RepoRoot commit -m 'docs(week05): fill in GitHub portfolio repository URL' | Out-Null
+        Ok '已提交 docs(week05): fill in GitHub portfolio repository URL'
+    } else {
+        Ok 'README 无变化，无需提交'
+    }
 }
 
 # ---------- 6. 推送前的最终体检 ----------
@@ -185,6 +209,11 @@ try {
 
 # ---------- 7. 推送 ----------
 Step "推送到 $RemoteName/$branch"
+if ($DryRun) {
+    Write-Host "`n[DRY-RUN 完成] 地址解析与预检全部通过，未写任何东西。" -ForegroundColor Magenta
+    Write-Host "    确认无误后去掉 -DryRun 重跑，即可真正回填 README 并 push。" -ForegroundColor Magenta
+    exit 0
+}
 Write-Host '    若弹出 Git Credential Manager 登录窗口，请在浏览器完成授权或粘贴 PAT。' -ForegroundColor Yellow
 & git -C $RepoRoot push -u $RemoteName $branch 2>&1 | ForEach-Object { "    $_" }
 if ($LASTEXITCODE -ne 0) {
