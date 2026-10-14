@@ -145,33 +145,41 @@ if ($authors.Count -ne 1) { Fail "提交作者不唯一：$($authors -join ' / '
 # 远端仓库存在性预检：git push 对"私有/不存在"统一回 403 并要账号密码，
 # 报错信息极具误导性，所以先用一次匿名 HTTP 请求探一下，把话说清楚。
 Step '预检远端仓库是否已创建'
-# ⚠️ 必须用 GET，不能用 HEAD：GitHub 的 info/refs 端点对 HEAD 返回 405，
-#    会把这个端点误判成"不可用"从而静默跳过预检。实测踩过。
-$probe = "$WebUrl/info/refs?service=git-upload-pack"
+# 用 GitHub 公开 REST API 而不是 info/refs 探测。两条都是实测踩出来的，别改回去：
+#   1) info/refs 端点对 HEAD 请求返回 405 —— 只能用 GET；
+#   2) 更麻烦的是，**仓库不存在时 info/refs 返回 401 而不是 404**
+#      （GitHub 故意不区分"不存在"和"私有"，避免泄露私有仓库是否存在），
+#      于是"不存在"与"私有"在这一层根本分不开，预检等于失效、还会误报"仓库存在"。
+#   API 的 /repos/{owner}/{repo} 语义明确：存在且公开 -> 200，不存在 -> 404。
+$api = $WebUrl -replace '^https://github\.com/', 'https://api.github.com/repos/'
 try {
-    $resp = Invoke-WebRequest -Uri $probe -Method Get -TimeoutSec 15 -UseBasicParsing -ErrorAction Stop
-    $code = [int]$resp.StatusCode
-    if ($code -eq 200) {
-        Ok "远端仓库已存在且公开可达（HTTP 200）"
-    } else {
-        Ok "远端返回 HTTP $code，继续尝试 push"
-    }
+    $resp = Invoke-WebRequest -Uri $api -Method Get -TimeoutSec 15 -UseBasicParsing `
+        -Headers @{ 'User-Agent' = 'week05-push-helper'; 'Accept' = 'application/vnd.github+json' } `
+        -ErrorAction Stop
+    if ([int]$resp.StatusCode -eq 200) { Ok '远端仓库已存在且公开可达（HTTP 200）' }
+    else { Ok "远端返回 HTTP $($resp.StatusCode)，继续尝试 push" }
 } catch {
     $code = $null
     if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
     if ($code -eq 404) {
         Fail @"
-远端仓库不存在（HTTP 404）：$WebUrl
-        请先在 GitHub 上新建这个仓库，再重新运行本脚本。
-        建仓库时务必【不要】勾选 "Add a README file" —— 勾了远端会先有一个提交，
-        本地历史与它无关，push 会被拒（non-fast-forward）。
+远端仓库查不到（HTTP 404）：$WebUrl
+        情况一 —— 你**还没建**这个仓库：
+          先去 GitHub 新建，再重新运行本脚本。建仓时务必【不要】勾选
+          "Add a README file"，也不要加 .gitignore / License：勾了远端会先有一个
+          提交，本地历史与它无关，push 会被拒（non-fast-forward）。
+        情况二 —— 你**建了但设成 Private**：
+          公开 API 看不见私有仓库，这是 GitHub 的正常行为，不代表你没建。
+          作品集本来也需要公开，建议改成 Public 后重跑；
+          或跳过预检手敲：
+            git remote add origin $CloneUrl
+            git push -u origin main
 "@
-    } elseif ($code -eq 401 -or $code -eq 403) {
-        # 私有仓库匿名访问也是 401/403：这恰恰说明仓库存在，属正常
-        Ok "远端返回 HTTP $code（私有仓库或需认证，说明仓库存在，继续）"
+    } elseif ($code -eq 403) {
+        Write-Host '    [提示] API 触发限流（HTTP 403），预检跳过，继续尝试 push。' -ForegroundColor Yellow
     } else {
         Write-Host "    [提示] 预检未完成（$($_.Exception.Message)）" -ForegroundColor Yellow
-        Write-Host "           可能是网络/TLS 限制，不阻塞，继续尝试 push。" -ForegroundColor Yellow
+        Write-Host '           可能是网络/TLS 限制，不阻塞，继续尝试 push。' -ForegroundColor Yellow
     }
 }
 
