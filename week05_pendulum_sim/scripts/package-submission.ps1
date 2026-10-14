@@ -83,16 +83,21 @@ Write-Host "    提交历史 : $commitCount 次 commit（要求 >= 3）OK" -Fore
 # 路径里的 "week05_pendulum_sim" 会意外命中 *.verify-tmp* 这类通配符。
 $allFiles  = @(Get-ChildItem -Path $RepoRoot -Recurse -File -Force)
 $prefixLen = $RepoRoot.Length + 1
+# 必须排除**产物自身**：包放在仓库内，若不排除，上一次的 zip 会被打进这一次，
+# 体积每跑一次翻一倍（1.5MB → 3.0MB → 6.1MB…）。
 $files = @($allFiles | Where-Object {
     $rel = $_.FullName.Substring($prefixLen).Replace('\', '/')
     $rel -notlike '.verify-tmp/*' -and
     $rel -notlike '*/ORIG_HEAD'   -and
-    $rel -ne $ZipName
+    $_.Name -notlike 'Week05_Lab_*.zip'
 })
 Write-Host "    待打包   : $($files.Count) 个文件（共扫描 $($allFiles.Count) 个）"
 if ($files.Count -lt 20) { throw "文件清单只扫到 $($files.Count) 个，过滤条件可能又出错了" }
 if (-not ($files | Where-Object { $_.Name -eq 'HEAD' -and $_.Directory.Name -eq '.git' })) {
     throw '文件清单里没有 .git/HEAD，.git 没被扫进来'
+}
+if ($files | Where-Object { $_.Name -like '*.zip' }) {
+    throw '文件清单里混入了 zip，产物自身排除失败'
 }
 
 # ---------- 2. 写入 zip ----------
